@@ -406,6 +406,51 @@ func TestAppEnv(t *testing.T) {
 	})
 }
 
+func TestAppSummary(t *testing.T) {
+	Convey("Get app summary", t, func() {
+		setup(MockRoute{"GET", "/v2/apps/b5f0d1bd-a3a9-40a4-af1a-312ad26e5379/summary", appSummaryPayload, "", 200, "", nil}, t)
+		defer teardown()
+		c := &Config{
+			ApiAddress: server.URL,
+			Token:      "foobar",
+		}
+		client, err := NewClient(c)
+		So(err, ShouldBeNil)
+
+		app := &App{
+			Guid: "b5f0d1bd-a3a9-40a4-af1a-312ad26e5379",
+			c:    client,
+		}
+
+		summary, err := app.Summary()
+		So(err, ShouldBeNil)
+
+		So(summary.Guid, ShouldEqual, "b5f0d1bd-a3a9-40a4-af1a-312ad26e5379")
+		So(summary.Name, ShouldEqual, "test-app")
+		So(summary.ServiceCount, ShouldEqual, 1)
+		So(summary.RunningInstances, ShouldEqual, 1)
+		So(summary.SpaceGuid, ShouldEqual, "494d8b64-8181-4183-a6d3-6279db8fec6e")
+		So(summary.StackGuid, ShouldEqual, "67e019a3-322a-407a-96e0-178e95bd0e55")
+		So(summary.Buildpack, ShouldEqual, "ruby_buildpack")
+		So(summary.DetectedBuildpack, ShouldEqual, "")
+		So(summary.Memory, ShouldEqual, 256)
+		So(summary.Instances, ShouldEqual, 1)
+		So(summary.DiskQuota, ShouldEqual, 512)
+		So(summary.State, ShouldEqual, "STARTED")
+		So(summary.Command, ShouldEqual, "")
+		So(summary.PackageState, ShouldEqual, "STAGED")
+		So(summary.HealthCheckType, ShouldEqual, "port")
+		So(summary.HealthCheckTimeout, ShouldEqual, 0)
+		So(summary.StagingFailedReason, ShouldEqual, "")
+		So(summary.StagingFailedDescription, ShouldEqual, "")
+		So(summary.Diego, ShouldEqual, true)
+		So(summary.DockerImage, ShouldEqual, "")
+		So(summary.DetectedStartCommand, ShouldEqual, "rackup -p $PORT")
+		So(summary.EnableSSH, ShouldEqual, true)
+		So(summary.DockerCredentials["redacted_message"], ShouldEqual, "[PRIVATE DATA HIDDEN]")
+	})
+}
+
 func TestAppSpace(t *testing.T) {
 	Convey("Find app space", t, func() {
 		setup(MockRoute{"GET", "/v2/spaces/foobar", spacePayload, "", 200, "", nil}, t)
@@ -467,5 +512,37 @@ func TestCreateApp(t *testing.T) {
 		So(app.Guid, ShouldEqual, "9902530c-c634-4864-a189-71d763cb12e2")
 		So(app.Name, ShouldEqual, "test-env")
 		So(app.SpaceGuid, ShouldEqual, "a72fa1e8-c694-47b3-85f2-55f61fd00d73")
+	})
+}
+
+func TestStartApp(t *testing.T) {
+	Convey("Start app", t, func() {
+		expectedBody := `{ "state": "STARTED" }`
+		setup(MockRoute{"PUT", "/v2/apps/a537761f-9d93-4b30-af17-3d73dbca181b", appPayload, "", http.StatusCreated, "", &expectedBody}, t)
+		defer teardown()
+		c := &Config{
+			ApiAddress: server.URL,
+			Token:      "foobar",
+		}
+		client, err := NewClient(c)
+		So(err, ShouldBeNil)
+
+		So(client.StartApp("a537761f-9d93-4b30-af17-3d73dbca181b"), ShouldBeNil)
+	})
+}
+
+func TestStopApp(t *testing.T) {
+	Convey("Stop app", t, func() {
+		expectedBody := `{ "state": "STOPPED" }`
+		setup(MockRoute{"PUT", "/v2/apps/a537761f-9d93-4b30-af17-3d73dbca181b", appPayload, "", http.StatusCreated, "", &expectedBody}, t)
+		defer teardown()
+		c := &Config{
+			ApiAddress: server.URL,
+			Token:      "foobar",
+		}
+		client, err := NewClient(c)
+		So(err, ShouldBeNil)
+
+		So(client.StopApp("a537761f-9d93-4b30-af17-3d73dbca181b"), ShouldBeNil)
 	})
 }

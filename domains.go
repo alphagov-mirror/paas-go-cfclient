@@ -38,6 +38,8 @@ type SharedDomainResource struct {
 type Domain struct {
 	Guid                   string `json:"guid"`
 	Name                   string `json:"name"`
+	CreatedAt              string `json:"created_at"`
+	UpdatedAt              string `json:"updated_at"`
 	OwningOrganizationGuid string `json:"owning_organization_guid"`
 	OwningOrganizationUrl  string `json:"owning_organization_url"`
 	SharedOrganizationsUrl string `json:"shared_organizations_url"`
@@ -47,6 +49,8 @@ type Domain struct {
 type SharedDomain struct {
 	Guid            string `json:"guid"`
 	Name            string `json:"name"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 	RouterGroupGuid string `json:"router_group_guid"`
 	RouterGroupType string `json:"router_group_type"`
 	Internal        bool   `json:"internal"`
@@ -74,6 +78,8 @@ func (c *Client) ListDomainsByQuery(query url.Values) ([]Domain, error) {
 		}
 		for _, domain := range domainResp.Resources {
 			domain.Entity.Guid = domain.Meta.Guid
+			domain.Entity.CreatedAt = domain.Meta.CreatedAt
+			domain.Entity.UpdatedAt = domain.Meta.UpdatedAt
 			domain.Entity.c = c
 			domains = append(domains, domain.Entity)
 		}
@@ -110,6 +116,8 @@ func (c *Client) ListSharedDomainsByQuery(query url.Values) ([]SharedDomain, err
 		}
 		for _, domain := range domainResp.Resources {
 			domain.Entity.Guid = domain.Meta.Guid
+			domain.Entity.CreatedAt = domain.Meta.CreatedAt
+			domain.Entity.UpdatedAt = domain.Meta.UpdatedAt
 			domain.Entity.c = c
 			domains = append(domains, domain.Entity)
 		}
@@ -123,6 +131,17 @@ func (c *Client) ListSharedDomainsByQuery(query url.Values) ([]SharedDomain, err
 
 func (c *Client) ListSharedDomains() ([]SharedDomain, error) {
 	return c.ListSharedDomainsByQuery(nil)
+}
+
+func (c *Client) GetSharedDomainByGuid(guid string) (SharedDomain, error) {
+       r := c.NewRequest("GET", "/v2/shared_domains/"+guid)
+       resp, err := c.DoRequest(r)
+       if err != nil {
+               return SharedDomain{}, errors.Wrap(err, "Error requesting shared domain")
+       }
+       defer resp.Body.Close()
+       retval, err := c.handleSharedDomainResp(resp)
+       return *retval, err
 }
 
 func (c *Client) CreateSharedDomain(name string, internal bool, router_group_guid string) (*SharedDomain, error) {
@@ -146,6 +165,17 @@ func (c *Client) CreateSharedDomain(name string, internal bool, router_group_gui
 		return nil, errors.Wrapf(err, "Error creating shared domain %s, response code: %d", name, resp.StatusCode)
 	}
 	return c.handleSharedDomainResp(resp)
+}
+
+func (c *Client) DeleteSharedDomain(guid string, async bool) error {
+	resp, err := c.DoRequest(c.NewRequest("DELETE", fmt.Sprintf("/v2/shared_domains/%s?async=%t", guid, async)))
+	if err != nil {
+		return err
+	}
+	if (async && (resp.StatusCode != http.StatusAccepted)) || (!async && (resp.StatusCode != http.StatusNoContent)) {
+		return errors.Wrapf(err, "Error deleting organization %s, response code: %d", guid, resp.StatusCode)
+	}
+	return nil
 }
 
 func (c *Client) GetDomainByName(name string) (Domain, error) {
